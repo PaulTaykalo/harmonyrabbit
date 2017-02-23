@@ -13,8 +13,7 @@ fun main(args: Array<String>) {
     output.caches[i].videos = cacheServer.videos
   }
 
-  print(output.toString())
-  File("$file.out").writeText(output.toString())
+  File("$file.2out").writeText(output.toString())
 }
 
 fun readInputData(input: File): Input {
@@ -80,6 +79,7 @@ var requests = listOf<Request>()
 var cacheServers = arrayListOf<CacheServer>()
 var endpoints = listOf<Endpoint>()
 var videosSize = listOf<Int>()
+var videoRequests = mutableMapOf<Int, MutableList<Request>>()
 var totalCacheSize: Long = 0
 var cacheSizeLeft: Long = 0
 
@@ -114,17 +114,20 @@ fun recalculateForVideo(video: Int) {
   for (c in cacheServers) {
     c.winByVideo.remove(video)
   }
+  val currentVideoRequests = videoRequests[video]
 
-  for (r in requests.filter { it.video == video }) {
-    val endpo = endpoints[r.endpoint]
-    for (c in endpo.caches) {
-      val server = cacheServers[c.key]
-      if (!server.videos.contains(r.video)) {
+  if (currentVideoRequests != null) {
+    for (r in currentVideoRequests) {
+      val endpo = endpoints[r.endpoint]
+      for (c in endpo.caches) {
+        val server = cacheServers[c.key]
+        if (!server.videos.contains(r.video)) {
 
-        var currentWin = server.winByVideo[r.video] ?: 0
-        val latencyWin = c.value - (endpo.bestLatency[r.video] ?: 0)
-        currentWin += r.count * latencyWin
-        server.winByVideo[r.video] = currentWin
+          var currentWin = server.winByVideo[r.video] ?: 0
+          val latencyWin = c.value - (endpo.bestLatency[r.video] ?: 0)
+          currentWin += r.count * latencyWin
+          server.winByVideo[r.video] = currentWin
+        }
       }
     }
   }
@@ -196,6 +199,13 @@ fun finfSolution(input: Input) {
     cacheServers.add(CacheServer(i, input.cacheSize))
   }
   videosSize = input.videos
+  requests.forEach { it ->
+    var list = videoRequests[it.video]
+    if (list == null) {
+      videoRequests[it.video] = mutableListOf()
+    }
+    list?.add(it)
+  }
   precalculateWinsForCacheServers()
   calculateWins()
 }
