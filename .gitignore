@@ -1,1 +1,7 @@
 build
+.idea
+.gradle
+harmonyrabbit.iml
+.gradle/
+.idea/
+build
