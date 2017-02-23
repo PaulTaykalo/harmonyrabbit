@@ -13,7 +13,7 @@ fun main(args: Array<String>) {
     output.caches[i].videos = cacheServer.videos
   }
 
-  File("$file\\_output.txt").writeText(output.toString())
+  File("$file.txt").writeText(output.toString())
 }
 
 fun readInputData(input: File): Input {
