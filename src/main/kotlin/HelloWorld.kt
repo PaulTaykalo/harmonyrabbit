@@ -3,7 +3,7 @@ import java.util.*
 
 fun main(args: Array<String>) {
   val file = "worth"
-  val input = readInputData(File("/Users/nazim/work/harmonyrabbit/src/main/resources/$file.txt"))
+  val input = readInputData(File("src/main/resources/$file.txt"))
   println(input)
 
   finfSolution(input)
