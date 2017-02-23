@@ -6,6 +6,13 @@ fun main(args: Array<String>) {
   println(input)
 
   finfSolution(input)
+
+  val output = Output()
+  cacheServers.forEachIndexed { i, cacheServer ->
+    output.caches[i].videos = cacheServer.videos
+  }
+
+  print(output)
 }
 
 fun readInputData(input: File): Input {
@@ -55,7 +62,7 @@ fun readInputData(input: File): Input {
   return Input(endpoints, videos, cachesCount, cachesSize, requests)
 }
 
-data class Endpoint(val id: Int, val dataCenterLatency: Int, val caches: MutableMap<Int, Int> = HashMap())
+data class Endpoint(val id: Int, val dataCenterLatency: Int, val caches: MutableMap<Int, Int> = hashMapOf(), var bestLatency: MutableMap<Int, Int> = HashMap())
 data class Request(val video: Int, val endpoint: Int, val count: Int)
 data class Input(val endpoints: List<Endpoint>, val videos: List<Int>, val cacheCount: Int, val cacheSize: Int, val requests: List<Request>)
 
@@ -64,7 +71,7 @@ data class Win(val video: Int, val cache: Int, val win: Long)
 
 data class CacheServer(val id:Int,
                        var cacheServerSize: Int,
-                       val winByVideo:MutableMap<Int, Long> = mutableMapOf(),
+                       var winByVideo:MutableMap<Int, Long> = mutableMapOf(),
                        val videos:MutableList<Int> = mutableListOf())
 
 var requests = listOf<Request>()
@@ -81,7 +88,12 @@ fun putVideo(cache: Int, video: Int) {
 }
 
 fun removeWinsWithVideoesBiggerThatCacheSizeFor(cache: Int) {
-//  throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
+  val cacheServer = cacheServers[cache]
+  val cacheSize = cacheServer.cacheServerSize
+  val keys = cacheServer.winByVideo.filter { videosSize[it.key] > cacheSize }.keys
+  for (key in keys) {
+    cacheServer.winByVideo.remove(key)
+  }
 }
 
 fun decreaseCache(cache: Int, video: Int) {
@@ -89,24 +101,37 @@ fun decreaseCache(cache: Int, video: Int) {
 }
 
 fun recalculateForVideo(video: Int) {
-
   for (c in cacheServers) {
     c.winByVideo.remove(video)
   }
 
   for (r in requests.filter { it.video == video }) {
-    for (c in endpoints[r.endpoint].caches) {
+    val endpo = endpoints[r.endpoint]
+    for (c in endpo.caches) {
       val server = cacheServers[c.key]
       if (!server.videos.contains(r.video)) {
+
         var currentWin = server.winByVideo[r.video] ?: 0
-        val latencyWin = c.value
+        val latencyWin = c.value - (endpo.bestLatency[r.video] ?: 0)
         currentWin += r.count * latencyWin
         server.winByVideo[r.video] = currentWin
       }
     }
   }
-  throw UnsupportedOperationException("not implemented") //To change body of created functions use File | Settings | File Templates.
 }
+
+fun recalculateLatenciesForVideo(cache: Int, video: Int) {
+  endpoints
+      .filter { it.caches.containsKey(cache) }
+      .forEach {
+        val winForCache = it.caches[cache]!!
+        val current = it.bestLatency[video] ?: 0
+        if (current < winForCache) {
+          it.bestLatency[video] = winForCache
+        }
+      }
+}
+
 
 fun findBestW(): Win? {
   var bestWin : Win? = null
@@ -124,9 +149,12 @@ fun calculateWins() {
   while (true) {
     val win = findBestW() ?: break
     putVideo(win.cache, win.video)
+    recalculateLatenciesForVideo(win.cache, win.video)
     recalculateForVideo(win.video)
   }
 }
+
+
 
 fun precalculateWinsForCacheServers() {
   for (r in requests) {
@@ -139,7 +167,7 @@ fun precalculateWinsForCacheServers() {
     }
   }
 
-  print(cacheServers)
+  println(cacheServers)
 }
 
 fun finfSolution(input: Input) {
@@ -148,6 +176,7 @@ fun finfSolution(input: Input) {
   for (i in 0..input.cacheCount) {
     cacheServers.add(CacheServer(i, input.cacheSize))
   }
+  videosSize = input.videos
   precalculateWinsForCacheServers()
   calculateWins()
 }
