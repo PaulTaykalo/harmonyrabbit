@@ -13,6 +13,7 @@ fun main(args: Array<String>) {
     output.caches[i].videos = cacheServer.videos
   }
 
+  print(output.toString())
   File("$file.out").writeText(output.toString())
 }
 
@@ -79,6 +80,8 @@ var requests = listOf<Request>()
 var cacheServers = arrayListOf<CacheServer>()
 var endpoints = listOf<Endpoint>()
 var videosSize = listOf<Int>()
+var totalCacheSize: Long = 0
+var cacheSizeLeft: Long = 0
 
 fun putVideo(cache: Int, video: Int) {
   decreaseCache(cache, video)
@@ -101,9 +104,10 @@ fun removeWinsWithVideoesBiggerThatCacheSizeFor(cache: Int) {
 
 fun decreaseCache(cache: Int, video: Int) {
   val cacheServer = cacheServers[cache]
-  println("Cache $cache decreasing size by $videosSize[video]")
+  println("Cache $cache decreasing size by ${videosSize[video]}")
   cacheServer.cacheServerSize -=  videosSize[video]
-  println("Cache $cache size is ${cacheServer.cacheServerSize}")
+  cacheSizeLeft -= videosSize[video]
+  println("Size left $cacheSizeLeft (${cacheSizeLeft.toDouble()/totalCacheSize.toDouble()})")
 }
 
 fun recalculateForVideo(video: Int) {
@@ -186,6 +190,8 @@ fun precalculateWinsForCacheServers() {
 fun finfSolution(input: Input) {
   requests = input.requests
   endpoints = input.endpoints
+  totalCacheSize = (input.cacheCount * input.cacheSize).toLong()
+  cacheSizeLeft = totalCacheSize
   for (i in 0..input.cacheCount) {
     cacheServers.add(CacheServer(i, input.cacheSize))
   }
