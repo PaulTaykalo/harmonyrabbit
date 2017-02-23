@@ -2,8 +2,8 @@ import java.io.File
 import java.util.*
 
 fun main(args: Array<String>) {
-  val input = readInputData(File("input.in"))
-  println(input)
+  val input = readInputData(File("/Users/paultaykalo/Projects/harmonyrabbit/src/main/resources/zoo.txt"))
+//  println(input)
 
   finfSolution(input)
 
@@ -85,6 +85,8 @@ fun putVideo(cache: Int, video: Int) {
   cacheServer.winByVideo.remove(video)
   cacheServer.videos.add(video)
   removeWinsWithVideoesBiggerThatCacheSizeFor(cache)
+
+  println("Video $video to $cache")
 }
 
 fun removeWinsWithVideoesBiggerThatCacheSizeFor(cache: Int) {
@@ -97,7 +99,10 @@ fun removeWinsWithVideoesBiggerThatCacheSizeFor(cache: Int) {
 }
 
 fun decreaseCache(cache: Int, video: Int) {
-  cacheServers[cache].cacheServerSize = cacheServers[cache].cacheServerSize - videosSize[video]
+  val cacheServer = cacheServers[cache]
+  println("Cache $cache decreasing size by $videosSize[video]")
+  cacheServer.cacheServerSize -=  videosSize[video]
+  println("Cache $cache size is ${cacheServer.cacheServerSize}")
 }
 
 fun recalculateForVideo(video: Int) {
@@ -137,8 +142,13 @@ fun findBestW(): Win? {
   var bestWin : Win? = null
   for (c in cacheServers) {
     for (w in c.winByVideo) {
-      if (bestWin == null || w.value > bestWin.win) {
-        bestWin = Win(w.key, c.id, w.value)
+      val latency = w.value
+      val videoId = w.key
+      val videoSize = videosSize[videoId]
+      if (bestWin == null || latency > bestWin.win) {
+        if (videoSize <= c.cacheServerSize) {
+          bestWin = Win(videoId, c.id, latency)
+        }
       }
     }
   }
@@ -155,15 +165,17 @@ fun calculateWins() {
 }
 
 
-
 fun precalculateWinsForCacheServers() {
   for (r in requests) {
     for (c in endpoints[r.endpoint].caches) {
       val server = cacheServers[c.key]
-      var currentWin = server.winByVideo[r.video] ?: 0
-      val latencyWin = c.value
-      currentWin += r.count * latencyWin
-      server.winByVideo[r.video] = currentWin
+      val videoSize = videosSize[r.video]
+      if (server.cacheServerSize >= videoSize) {
+        var currentWin = server.winByVideo[r.video] ?: 0
+        val latencyWin = c.value
+        currentWin += r.count * latencyWin
+        server.winByVideo[r.video] = currentWin
+      }
     }
   }
 
