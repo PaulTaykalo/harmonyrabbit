@@ -2,7 +2,8 @@ import java.io.File
 import java.util.*
 
 fun main(args: Array<String>) {
-  val input = readInputData(File("input.in"))
+  val file = "worth"
+  val input = readInputData(File("/Users/nazim/work/harmonyrabbit/src/main/resources/$file.txt"))
   println(input)
 
   finfSolution(input)
@@ -12,7 +13,7 @@ fun main(args: Array<String>) {
     output.caches[i].videos = cacheServer.videos
   }
 
-  print(output)
+  File("$file\\_output.txt").writeText(output.toString())
 }
 
 fun readInputData(input: File): Input {
