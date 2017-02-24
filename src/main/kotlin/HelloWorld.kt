@@ -173,13 +173,68 @@ fun calculateWins() {
     val theWin = findBestW() ?: break
 
     // make even better?
-    val wins = makeBetterWin(theWin)
+//    val wins = makeBetterWin(theWin)
+    val wins = makeBestWin(theWin)
     for ((video, cache) in wins) {
       putVideo(cache, video)
       recalculateLatenciesForVideo(cache, video)
       recalculateForVideo(video)
     }
   }
+}
+
+data class Solution(val size: Int, val win: Long, val items: Array<Int> = arrayOf<Int>(),
+                    val relWin: Double = win.toDouble()/ size.toDouble())
+
+fun makeBestWin(win: Win): List<Win> {
+  val server = cacheServers[win.cache]
+  if (server.winByVideo.size < 2) {
+    return listOf(win)
+  }
+
+  val keys = server.winByVideo
+  val keysKwys = keys.keys.toIntArray()
+  var wave = mutableListOf<Solution>()
+
+  var bestSolution: Solution = Solution(videosSize[win.video], win.win, arrayOf(win.video))
+  for (videoId in keysKwys) {
+    val nextWave = mutableListOf<Solution>()
+    val videoWin = server.winByVideo[videoId]!!
+    val currVideoSize = videosSize[videoId]
+
+//    val sizes = wave.map { it.size }.toMutableSet()
+    if (currVideoSize < server.cacheServerSize) {
+      val solution = Solution(currVideoSize, videoWin, arrayOf(videoId))
+      nextWave.add(solution)
+      if (bestSolution.win < solution.win) {
+        bestSolution = solution
+      }
+    }
+
+    for ((size, win1, items) in wave) {
+      val totalSize = currVideoSize + size
+      if (totalSize < server.cacheServerSize) {
+        val solution = Solution(totalSize, win1 + videoWin, items.plus(videoId))
+        nextWave.add(solution)
+        if (bestSolution.relWin < solution.relWin) {
+          bestSolution = solution
+        }
+      }
+    }
+
+    wave.addAll(nextWave)
+
+    val MAXX = 50
+    if (wave.size > MAXX) {
+      wave.sortByDescending {  it.relWin }
+      wave = wave.subList(0, MAXX /2)
+    }
+  }
+
+  println("Best solution is $bestSolution")
+
+  val bestItems = bestSolution.items.toList().map { Win(it, server.id, keys[it]!!) }
+  return bestItems
 }
 
 fun  makeBetterWin(win: Win): List<Win> {
