@@ -2,7 +2,7 @@ import java.io.File
 import java.util.*
 
 fun main(args: Array<String>) {
-  val file = "worth"
+  val file = "kittens"
   val input = readInputData(File("src/main/resources/$file.txt"))
   println(input)
 
@@ -90,7 +90,7 @@ fun putVideo(cache: Int, video: Int) {
   cacheServer.videos.add(video)
   removeWinsWithVideoesBiggerThatCacheSizeFor(cache)
 
-  println("Video $video to $cache")
+//  println("Video $video to $cache")
 }
 
 fun removeWinsWithVideoesBiggerThatCacheSizeFor(cache: Int) {
@@ -104,7 +104,7 @@ fun removeWinsWithVideoesBiggerThatCacheSizeFor(cache: Int) {
 
 fun decreaseCache(cache: Int, video: Int) {
   val cacheServer = cacheServers[cache]
-  println("Cache $cache decreasing size by ${videosSize[video]}")
+//  println("Cache $cache decreasing size by ${videosSize[video]}")
   cacheServer.cacheServerSize -=  videosSize[video]
   cacheSizeLeft -= videosSize[video]
   println("Size left $cacheSizeLeft (${cacheSizeLeft.toDouble()/totalCacheSize.toDouble()})")
@@ -118,15 +118,18 @@ fun recalculateForVideo(video: Int) {
 
   if (currentVideoRequests != null) {
     for (r in currentVideoRequests) {
-      val endpo = endpoints[r.endpoint]
-      for (c in endpo.caches) {
+      val endpoint = endpoints[r.endpoint]
+      for (c in endpoint.caches) {
         val server = cacheServers[c.key]
         if (!server.videos.contains(r.video)) {
 
           var currentWin = server.winByVideo[r.video] ?: 0
-          val latencyWin = c.value - (endpo.bestLatency[r.video] ?: 0)
+          val cacheLatency = c.value
+          val latencyWin = cacheLatency - (endpoint.bestLatency[r.video] ?: 0)
           currentWin += r.count * latencyWin
-          server.winByVideo[r.video] = currentWin
+          if (currentWin > 0) {
+            server.winByVideo[r.video] = currentWin
+          }
         }
       }
     }
@@ -163,26 +166,86 @@ fun findBestW(): Win? {
   return bestWin
 }
 
+
+
 fun calculateWins() {
   while (true) {
-    val win = findBestW() ?: break
-    putVideo(win.cache, win.video)
-    recalculateLatenciesForVideo(win.cache, win.video)
-    recalculateForVideo(win.video)
+    val theWin = findBestW() ?: break
+
+    // make even better?
+    val wins = makeBetterWin(theWin)
+    for ((video, cache) in wins) {
+      putVideo(cache, video)
+      recalculateLatenciesForVideo(cache, video)
+      recalculateForVideo(video)
+    }
   }
+}
+
+fun  makeBetterWin(win: Win): List<Win> {
+  // can we make the same win with smaller size on this cache server?
+  val server = cacheServers[win.cache]
+  if (server.winByVideo.size < 2) {
+    return listOf(win)
+  }
+
+  val winVideoSize = videosSize[win.video]
+  // grab pair of each two and check whether its better to put them here
+  var bestItems = listOf(win)
+  var bestWin = win.win
+  val keys = server.winByVideo.filter { it.key != win.video }
+  val keysKwys = keys.keys.toIntArray()
+  for (i in 0..keysKwys.size - 2) {
+    val id1 = keysKwys[i]
+    val win1 = keys[id1]!!
+    val size1 = videosSize[id1]
+    if (size1 > winVideoSize) continue
+
+    for (j in i + 1..keysKwys.size - 1) {
+      val id2 = keysKwys[j]
+      val win2 = keys[id2]!!
+
+      val size2 = videosSize[id2]
+      val totalSize = size1 + size2
+      if (totalSize > server.cacheServerSize) continue
+      if (totalSize > winVideoSize) continue
+      val commwin = win1 + win2
+      if (commwin < bestWin) continue
+      bestWin = commwin
+      bestItems = listOf(
+          Win(id1, server.id, win1),
+          Win(id2, server.id, win2)
+      )
+
+    }
+  }
+
+  if (bestItems.size == 1) {
+    return bestItems
+  }
+  val id1 = bestItems[0].video
+  val id2 = bestItems[1].video
+  val commwin = bestItems[0].win + bestItems[1].win
+  val size1 = videosSize[id1]
+  val size2 = videosSize[id2]
+  val totalSize = size1 + size2
+  println("${keys.size}| $id1 && $id2 >> ${win.video} with total win of $commwin >> ${win.win}, $totalSize << $winVideoSize : Cache size still [${server.cacheServerSize}]")
+
+  return bestItems
 }
 
 
 fun precalculateWinsForCacheServers() {
-  for (r in requests) {
-    for (c in endpoints[r.endpoint].caches) {
-      val server = cacheServers[c.key]
-      val videoSize = videosSize[r.video]
+  for ((video, endpoint, count) in requests) {
+    for ((key, latencyWin) in endpoints[endpoint].caches) {
+      val server = cacheServers[key]
+      val videoSize = videosSize[video]
       if (server.cacheServerSize >= videoSize) {
-        var currentWin = server.winByVideo[r.video] ?: 0
-        val latencyWin = c.value
-        currentWin += r.count * latencyWin
-        server.winByVideo[r.video] = currentWin
+        var currentWin = server.winByVideo[video] ?: 0
+        currentWin += count * latencyWin
+        if (currentWin > 0) {
+          server.winByVideo[video] = currentWin
+        }
       }
     }
   }
